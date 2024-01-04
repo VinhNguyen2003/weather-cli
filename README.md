@@ -14,26 +14,26 @@ Before you begin, ensure you have Rust installed on your system.
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 1. Clone the repository:
-   ```
-   git clone https://github.com/your-username/weather-cli.git
-   cd weather-cli
-   ```
+```
+git clone https://github.com/your-username/weather-cli.git
+cd weather-cli
+```
 2. Build the project:
-   ```
-    cargo build
-   ```
+```
+cargo build
+```
 ## Usage
 
 To use Weather CLI, you'll need an API key from OpenWeatherMap.
 
 Set your OpenWeatherMap API key as an environment variable:
-  ```
-  export OPENWEATHERMAP_API_KEY=your_api_key
-  ```
+```
+export OPENWEATHERMAP_API_KEY=your_api_key
+```
 
 Run the program with the desired city:
 ```
-  cargo run -- -c "City Name"
+cargo run -- -c "City Name"
 ```
 
 Replace "City Name" with the name of the city you want to check the weather for.
