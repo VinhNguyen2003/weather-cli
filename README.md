@@ -41,4 +41,5 @@ Replace "City Name" with the name of the city you want to check the weather for.
 ## Configuration
 
 The tool uses environment variables for configuration.
+
 OPENWEATHERMAP_API_KEY: Your API key for OpenWeatherMap.
