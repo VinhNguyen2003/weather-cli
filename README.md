@@ -39,6 +39,7 @@ Run the program with the desired city:
 ```
 cargo run -- -c "City Name"
 ```
+Replace "City Name" with the name of the city you want to check the weather for.
 
 ### Optional Arguments
 
@@ -51,8 +52,6 @@ Replace `C` with `F` for Fahrenheit.
 ```
 cargo run -- -c "City Name" -d
 ```
-
-Replace "City Name" with the name of the city you want to check the weather for.
 
 ## Configuration
 
