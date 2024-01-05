@@ -7,6 +7,7 @@ use std::env;
 use serde_json::Value;
 use clap::{Arg, App};
 use chrono::{Utc, Local, TimeZone};
+use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,6 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .long("city")
             .value_name("CITY")
             .help("Sets the city to get weather information for")
+            .multiple(true)
             .takes_value(true))
         .arg(Arg::with_name("unit")
             .short("u")
@@ -33,6 +35,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .long("details")
             .help("Displays detailed weather information")
             .takes_value(false))
+        .arg(Arg::with_name("add-favorite")
+            .long("add-favorite")
+            .value_name("CITY")
+            .help("Add a city to your favorites")
+            .takes_value(true))
+        .arg(Arg::with_name("remove-favorite")
+            .long("remove-favorite")
+            .value_name("CITY")
+            .help("Remove a city from your favorites")
+            .takes_value(true))
+        .arg(Arg::with_name("list-favorites")
+            .long("list-favorites")
+            .help("List all favorite cities")
+            .takes_value(false))
         .get_matches();
 
     // Retrieve the city name from the command line arguments, default to "Minneapolis"
@@ -42,12 +58,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Getting weather information for: {}", city);
 
     let api_key = env::var("OPENWEATHERMAP_API_KEY").expect("OPENWEATHERMAP_API_KEY not set");
+    if let Some(cities) = matches.values_of("city") {
+        for city in cities {
+            let weather_data = fetch_weather_data(city, &api_key).await?;
+            display_weather(&weather_data, unit, details);
+        }
+    }
+    Ok(())
+}
+
+async fn fetch_weather_data(city: &str, api_key: &str) -> Result<Value, Box<dyn Error>> {
     let url = format!("http://api.openweathermap.org/data/2.5/weather?q={}&appid={}", city, api_key);
     let response = reqwest::get(&url).await?;
-    let weather_data = response.json::<serde_json::Value>().await?;
-    display_weather(&weather_data, unit, details);
-
-    Ok(())
+    if response.status().is_success() {
+        let weather_data: Value = response.json().await?;
+        Ok(weather_data)
+    } else {
+        Err(format!("Failed to fetch weather data for {}: {}", city, response.status()).into())
+    }
 }
 
 fn display_weather(weather_data: &Value, unit: &str, details: bool) {
