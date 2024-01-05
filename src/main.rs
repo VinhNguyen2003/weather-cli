@@ -8,6 +8,9 @@ use serde_json::Value;
 use clap::{Arg, App};
 use chrono::{Utc, Local, TimeZone};
 use std::error::Error;
+use std::fs::{self, File};
+use std::io::{self, Read};
+use std::path::Path;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -17,11 +20,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .version("1.0")
         .author("Vinh Nguyen")
         .about("Gets weather information")
+        .setting(clap::AppSettings::ArgRequiredElseHelp)
         .arg(Arg::with_name("city")
             .short("c")
             .long("city")
-            .value_name("CITY")
-            .help("Sets the city to get weather information for")
+            .value_name("[CITIES]")
+            .help("Sets the cities to get weather information for. Cities are separated by commas. Optionally, enter in favorites to use the favorites list.")
             .multiple(true)
             .takes_value(true))
         .arg(Arg::with_name("unit")
@@ -51,17 +55,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .takes_value(false))
         .get_matches();
 
-    // Retrieve the city name from the command line arguments, default to "Minneapolis"
-    let city = matches.value_of("city").unwrap_or("Minneapolis");
+    // Handle managing favorite cities
+    if let Some(city) = matches.value_of("add-favorite") {
+        add_favorite(city)?;
+        println!("Added {} to favorites.", city);
+    }
+
+    if let Some(city) = matches.value_of("remove-favorite") {
+        remove_favorite(city)?;
+        println!("Removed {} from favorites.", city);
+    }
+
+    if matches.is_present("list-favorites") {
+        list_favorites()?;
+    }
+    
     let unit = matches.value_of("unit").unwrap_or("C");
     let details = matches.is_present("details");
-    println!("Getting weather information for: {}", city);
-
     let api_key = env::var("OPENWEATHERMAP_API_KEY").expect("OPENWEATHERMAP_API_KEY not set");
+
     if let Some(cities) = matches.values_of("city") {
         for city in cities {
-            let weather_data = fetch_weather_data(city, &api_key).await?;
-            display_weather(&weather_data, unit, details);
+            if city.to_lowercase() == "favorites" {
+                let favorites = get_favorites()?;
+                for favorite_city in favorites {
+                    match fetch_weather_data(&favorite_city, &api_key).await {
+                        Ok(weather_data) => display_weather(&weather_data, unit, details),
+                        Err(e) => println!("Error fetching weather for {}: {}", favorite_city, e),
+                    }
+                }
+            } else {
+                match fetch_weather_data(city, &api_key).await {
+                    Ok(weather_data) => display_weather(&weather_data, unit, details),
+                    Err(e) => println!("Error fetching weather for {}: {}", city, e),
+                }
+            }
         }
     }
     Ok(())
@@ -127,6 +155,49 @@ fn display_weather(weather_data: &Value, unit: &str, details: bool) {
     }
 }
 
+// Favorite functions
+fn add_favorite(city: &str) -> io::Result<()> {
+    let mut favorites = get_favorites()?;
+    if !favorites.contains(&city.to_string()) {
+        favorites.push(city.to_string());
+        save_favorites(&favorites)
+    } else {
+        Ok(())
+    }
+}
+
+fn save_favorites(favorites: &Vec<String>) -> io::Result<()> {
+    let json = serde_json::to_string(favorites)?;
+    fs::write("favorites.json", json)
+}
+
+fn remove_favorite(city: &str) -> io::Result<()> {
+    let mut favorites = get_favorites()?;
+    favorites.retain(|c| c != city);
+    save_favorites(&favorites)
+}
+
+fn list_favorites() -> io::Result<()> {
+    let favorites = get_favorites()?;
+    for city in favorites {
+        println!("{}", city);
+    }
+    Ok(())
+}
+
+fn get_favorites() -> io::Result<Vec<String>> {
+    if !Path::new("favorites.json").exists() {
+        File::create("favorites.json")?;
+        return Ok(vec![]);
+    }
+    let mut file = File::open("favorites.json")?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let favorites: Vec<String> = serde_json::from_str(&contents)?;
+    Ok(favorites)
+}
+
+// Ultilities functions
 fn kelvin_to_unit(kelvin: f64, unit: &str) -> f64 {
     match unit {
         "F" | "f" => (kelvin - 273.15) * 9.0/5.0 + 32.0,
